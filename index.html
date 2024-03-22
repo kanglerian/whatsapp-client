@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./css/all.min.css">
+  <link rel="stylesheet" href="./css/output.css">
+  <title>Whatsapp Sender</title>
+</head>
+
+<body class="grid grid-cols-1 md:grid-cols-2 h-screen">
+  <section class="flex bg-slate-50 h-full  overflow-y-auto md:overflow-hidden">
+    <div class="w-full flex flex-col justify-between p-8 bg-white h-full">
+      <nav class="flex flex-col md:flex-row items-center justify-between">
+        <a href="#" class="flex items-center gap-2">
+          <img src="./img/whatsapp.webp" alt="Whatsapp" class="w-10">
+          <span class="font-bold text-lg">Whatsapp Sender</span>
+        </a>
+        <ul class="flex gap-5 text-sm">
+          <li class="font-medium text-slate-800"><i class="fa-solid fa-message mr-1"></i> Chat</li>
+          <li class="text-slate-700">BOT</li>
+          <li class="text-slate-700">Tutorial</li>
+        </ul>
+      </nav>
+      <main class="space-y-5">
+        <div class="space-y-2">
+          <h2 class="font-bold text-4xl leading-snug">Simple. New Version.<br />Reliable Messaging for Marketing.</h2>
+          <p class="text-gray-700">Lorem ipsum dolor sit amet consectetur adipisicing elit. Cum, molestiae doloremque?
+            Asperiores laboriosam voluptate voluptas dolorem autem corrupti sapiente reprehenderit?</p>
+        </div>
+        <div class="hidden flex items-center gap-5" id="identity-container">
+          <input type="number" id="identity" placeholder="Tulis kode ID anda disini..."
+            class="w-full bg-slate-50 border border-slate-300 px-5 py-4 rounded-2xl text-sm">
+          <button onclick="setIdentity()"
+            class="flex items-center gap-2 px-5 py-4 bg-[#25D366] hover:bg-[#24C861] text-white rounded-2xl text-sm">
+            <i class="fa-solid fa-right-to-bracket"></i> Masuk</button>
+        </div>
+        <div id="loading-container" class="hidden">
+          <lottie-player src="./animation/loading.json" background="transparent" speed="1"
+            style="width: 100px; height: 100px;" loop autoplay></lottie-player>
+        </div>
+        <div id="qrcode-container" class="hidden space-y-3">
+          <img src="./img/qrcode-sample.png" alt="QR Code" id="qrcode" class="w-48 border border-gray-200">
+          <div class="text-xs text-gray-700">Jika terjadi <span class="font-medium text-red-600">"Tidak dapat menautkan
+              perangkat"</span> maka <span class="text-emerald-600">tunggu sampai QR Code</span> berubah.</div>
+        </div>
+      </main>
+      <footer class="flex items-center justify-between">
+        <p class="text-xs text-gray-600">Copyright © 2023 Lerian Febriana, A.Md.Kom</p>
+        <ul class="flex items-center gap-3">
+          <li class="text-xs text-gray-600">
+            <a href="https://instagram.com/kanglerian" target="_blank"><i class="fa-brands fa-instagram"></i>
+              Instagram</a>
+          </li>
+          <li class="text-xs text-gray-600">
+            <a href="https://wa.me/6281286501015" target="_blank"><i class="fa-solid fa-circle-info"></i> Help</a>
+          </li>
+        </ul>
+      </footer>
+    </div>
+  </section>
+  <section id="chat-container" class="flex justify-center items-center bg-[#25D366] h-full overflow-hidden">
+    <div class="flex flex-col justify-center items-center h-full">
+      <div class="text-center space-y-3">
+        <i class="fa-brands fa-whatsapp fa-3x text-white"></i>
+        <div id="signal" class="text-white"></div>
+      </div>
+    </div>
+  </section>
+  <script src="./js/all.min.js"></script>
+  <script src="./js/axios.min.js"></script>
+  <script src="./js/jquery-3.7.0.min.js"></script>
+  <script src="./js/lottie-player.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const accounts = localStorage.getItem('accounts');
+    const parsedData = JSON.parse(accounts);
+    const socket = io('http://localhost:7001')
+
+    socket.on('connect', () => {
+      let icon = '<i class="fa-solid fa-server mr-1"></i>'
+      let text = '<span class="text-sm">Terhubung ke server.</span>'
+      $('#chat-container').css('background-color', '#25D366');
+      $('#signal').css('display', 'block').html(`<span>${icon} ${text}</span>`);
+      $('#loading-container').show();
+      console.log('Terhubung ke server');
+    });
+
+    socket.on('connect_error', (error) => {
+      let icon = '<i class="fa-solid fa-server mr-1"></i>'
+      let text = '<span class="text-sm">Gagal terhubung ke server.</span>'
+      $('#chat-container').css('background-color', '#ef4444');
+      $('#signal').css('display', 'block').html(`<span>${icon} ${text}</span>`);
+      $('#qrcode-container').hide();
+      $('#loading-container').show();
+      console.log('Gagal terhubung ke server');
+    });
+
+    socket.on('ready', (data) => {
+      $('#qrcode-container').hide();
+      getUser();
+      setTimeout(() => {
+        getData();
+      }, 1000);
+    })
+
+    socket.on('qrcodeval', (qrcode) => {
+      getUser();
+      document.getElementById('qrcode').src = qrcode;
+      $('#qrcode-container').show();
+      $('#loading-container').hide();
+    })
+
+    const setIdentity = async () => {
+      let identity = document.getElementById('identity').value;
+      await axios.get(`https://database.politekniklp3i-tasikmalaya.ac.id/api/user/info/${identity}`)
+        .then((response) => {
+          if (response.data.name !== "Tidak diketahui") {
+            socket.emit('setIdentity', identity);
+            getUser();
+          } else {
+            alert('Akun Tidak Ditemukan.')
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    }
+
+    const getUser = () => {
+      socket.emit('getUsers', true);
+      socket.on('users', (data) => {
+        localStorage.setItem('accounts', JSON.stringify(data));
+        let code = data.code;
+        if (code) {
+          $('#identity-container').hide();
+          if (data.status == 1) {
+            $('#loading-container').hide();
+          } else {
+            $('#loading-container').show();
+          }
+        } else {
+          $('#identity-container').show();
+        }
+        console.log(data.status);
+      });
+      socket.emit('getHistory', true);
+      socket.on('histories', (data) => {
+        localStorage.setItem('histories', JSON.stringify(data));
+      });
+    }
+
+    getUser();
+
+    const getData = async () => {
+      const accounts = localStorage.getItem('accounts');
+      const parsedData = JSON.parse(accounts);
+      const histories = localStorage.getItem('histories');
+      const parsedHistories = JSON.parse(histories);
+
+      const presenter = await checkAPI(parsedData.phone);
+      const gurubk = await checkGuruBK();
+
+      // let bucket = '';
+
+      // if (parsedHistories.length > 0) {
+      //   parsedHistories.forEach((contact, i) => {
+      //     bucket += `
+      //     <tr>
+      //       <th scope="row" class="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">${i + 1}</th>
+      //       <td class="px-6 py-2">${contact.name}</td>
+      //       <td class="px-4 py-2">${contact.phone}</td>
+      //       <td class="px-3 py-2">${contact.status == 1 ? `<i class="text-green-500 fas fa-check-circle"></i>` : '<i class="text-red-500 fas fa-circle-xmark"></i>'}</td>
+      //     </tr>
+      //   `
+      //   });
+      // } else {
+      //   bucket += `<tr><td colspan="4" class="text-center text-gray-600 py-3 text-sm">Data riwayat belum ada</td></tr>`
+      // }
+      // if (presenter.length > 0 || gurubk.status) {
+      //   if (parsedData.status == 0 && parsedData.qrcode == null) {
+      //     $('#splashTitle').text(`Menunggu QRCode`)
+      //     $('#splashParagraph').text(`"Barang siapa yang berusaha bersabar, maka Allah akan menjadikannya bisa bersabar dan tidak ada seorang pun yang dianugerahi sesuatu yang melebihi kesabaran." (HR. Bukhari No 1469)`)
+      //     $('#accountContainer').hide()
+      //     $('#mainContainer').hide()
+      //     $('#loadingContainer').show()
+      //     $('#qrcodeContainer').hide()
+      //     $('#identityContainer').hide()
+      //   } else if (parsedData.status == 0 && parsedData.qrcode != null) {
+
+      //     $('#qrcode').attr('src', parsedData.qrcode);
+      //     $('#splashTitle').text(`Silahkan Scan QRCode`)
+      //     $('#splashParagraph').text(`"Barangsiapa bertakwa kepada Allah niscaya Dia akan memberikan jalan keluar, dan memberinya rizki dari arah yang tidak disangka. Dan barangsiapa yang bertawakkal kepada Allah niscaya Allah akan mencukupkan (keperluan)nya." (QS. Ath Thalaaq [65] : 2-3)`)
+      //     $('#splashContainer').show()
+      //     $('#accountContainer').hide()
+      //     $('#mainContainer').hide()
+      //     $('#loadingContainer').hide()
+
+      //     if (parsedData.code) {
+      //       $('#qrcodeContainer').show()
+      //       $('#splashContainer').show()
+      //       $('#identityContainer').hide()
+      //     } else {
+      //       $('#qrcodeContainer').hide()
+      //       $('#splashContainer').hide()
+      //       $('#identityContainer').show()
+      //     }
+
+      //   } else if (parsedData.status == 1) {
+
+      //     let name;
+
+      //     try {
+      //       const response = await axios.get(`https://database.politekniklp3i-tasikmalaya.ac.id/api/user/info/${parsedData.code}`);
+      //       name = response.data.name;
+      //     } catch (error) {
+      //       name = error.message;
+      //     }
+
+      //     $('#identityContainer').hide()
+      //     $('#splashContainer').hide()
+      //     $('#accountContainer').hide()
+      //     $('#loadingContainer').hide()
+      //     $('#qrcodeContainer').hide()
+      //     $('#mainContainer').show()
+      //     $('#navbarContainer').show()
+      //     $('#history').html(bucket);
+      //     $('#info_identity').html(`
+      //       <i class="fa-solid fa-circle-user text-sky-500"></i>
+      //       <p class="inline text-sm text-gray-900">
+      //         Halo <span class="underline font-bold">${name}</span>
+      //       </p>
+      //       <p class="text-sm text-gray-900 mt-1">
+      //         ${parsedData.phone} sedang aktif!
+      //       </p>
+      //     `);
+      //   }
+      // } else {
+      //   $('#accountContainer').show()
+      //   $('#splashContainer').hide()
+      // }
+    }
+
+    const checkAPI = async (phone) => {
+      try {
+        const response = await axios.get(`https://whatsapp-account-lp3i.vercel.app/api/accounts/${phone}`);
+        return response.data;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    const checkGuruBK = async () => {
+      try {
+        const response = await axios.get(`https://whatsapp-account-lp3i.vercel.app/api/gurubk`);
+        return response.data;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+
+</html>
